@@ -1,0 +1,12 @@
+.env
+*.db
+reports/
+__pycache__/
+*.pyc
+.DS_Store
+.streamlit/secrets.toml
+credentials.json
+token.json
+*.egg-info/
+.venv/
+venv/
