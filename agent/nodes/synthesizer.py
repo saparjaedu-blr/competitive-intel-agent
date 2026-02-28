@@ -1,5 +1,5 @@
 from langchain_openai import ChatOpenAI
-from langchain.schema import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from agent.state import AgentState, CompetitorSynthesis
 from config.settings import OPENAI_API_KEY, OPENAI_MODEL
 
