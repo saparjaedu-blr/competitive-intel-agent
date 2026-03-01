@@ -53,18 +53,25 @@ cp .env.example .env
 
 ### 5. Google Doc Scrapbook structure
 
-Your scrapbook doc should use **Heading 1** or **Heading 2** for each competitor name:
+Create a folder in Google Drive called `Competitor Scrapbook` (or any name you prefer).
+
+Inside that folder, create **one Google Doc per competitor** — the filename is the vendor name:
 
 ```
-# Salesforce
-Notes about Salesforce here...
-
-# HubSpot
-Notes about HubSpot here...
+📁 Competitor Scrapbook/
+    📄 Salesforce        ← filename must match the vendor name you configure in the app
+    📄 HubSpot
+    📄 Zoho CRM
 ```
 
-Copy the Doc ID from its URL:
-`https://docs.google.com/document/d/YOUR_DOC_ID_HERE/edit`
+Each doc can have **multiple tabs** to group features by category (e.g. "AI Features", "Pricing", "Integrations", "Roadmap"). The agent reads all tabs automatically.
+
+Copy the **folder** ID from its URL (not the doc ID):
+`https://drive.google.com/drive/folders/YOUR_FOLDER_ID_HERE`
+
+Paste this as `GOOGLE_DOC_SCRAPBOOK_ID` in your `.env`.
+
+> **Naming tip:** The doc filename matching is case-insensitive and partial — so a doc named "Salesforce CRM" will match a vendor configured as "Salesforce".
 
 ### 6. Run
 

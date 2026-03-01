@@ -3,6 +3,7 @@ from db.database import (
     get_all_competitors, add_competitor,
     update_competitor, delete_competitor
 )
+from agent.tools.gdrive_tool import list_scrapbook_vendors
 
 
 def render():
@@ -43,8 +44,20 @@ def render():
 
     st.subheader(f"Saved Competitors ({len(competitors)})")
 
+    # Check which vendors have scrapbook docs in Drive
+    try:
+        scrapbook_vendors = [v.lower() for v in list_scrapbook_vendors()]
+    except Exception:
+        scrapbook_vendors = []
+
     for comp in competitors:
-        with st.expander(f"🏢 {comp['vendor_name']}", expanded=False):
+        has_scrapbook = any(
+            comp["vendor_name"].lower() in v or v in comp["vendor_name"].lower()
+            for v in scrapbook_vendors
+        )
+        scrapbook_badge = "📄 Scrapbook doc found" if has_scrapbook else "⚠️ No scrapbook doc"
+
+        with st.expander(f"🏢 {comp['vendor_name']}  ·  {scrapbook_badge}", expanded=False):
             with st.form(f"edit_{comp['id']}"):
                 col1, col2 = st.columns(2)
                 with col1:
