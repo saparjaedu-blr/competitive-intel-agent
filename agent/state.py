@@ -3,9 +3,10 @@ from typing import TypedDict, List, Optional
 
 class CompetitorRawData(TypedDict):
     vendor_name: str
-    web_content: str        # scraped from website + blog
-    youtube_content: str    # transcripts concatenated
-    scrapbook_content: str  # extracted from Google Doc section
+    web_content: str              # scraped from website + blog
+    youtube_content: str          # transcripts concatenated
+    scrapbook_content: str        # text extracted from Google Doc tabs
+    scrapbook_images: List[str]   # base64 images extracted from Google Doc
 
 
 class CompetitorSynthesis(TypedDict):
