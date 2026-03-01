@@ -5,14 +5,13 @@ from db.database import get_competitor_by_name
 
 def web_scraper_node(state: AgentState) -> AgentState:
     """
-    Fetch and scrape website + blog content for each vendor.
-    Updates raw_data in state.
+    Fetch and scrape website, blog, docs, and changelog content for each vendor.
+    Splits content into web_content (marketing) and docs_content (technical).
     """
     vendors = state["vendors"]
     raw_data = state.get("raw_data", [])
     errors = state.get("errors", [])
 
-    # Build a lookup for already-fetched vendors
     existing = {d["vendor_name"]: d for d in raw_data}
 
     for vendor_name in vendors:
@@ -21,23 +20,33 @@ def web_scraper_node(state: AgentState) -> AgentState:
             errors.append(f"Vendor '{vendor_name}' not found in database.")
             continue
 
-        urls = [
+        # ── Marketing content (website + blog) ────────────────────────────────
+        marketing_urls = [
             competitor.get("website_url", ""),
             competitor.get("blog_url", ""),
         ]
-        urls = [u for u in urls if u]  # filter empty
+        marketing_urls = [u for u in marketing_urls if u]
+        web_content = scrape_multiple(marketing_urls) if marketing_urls else ""
 
-        web_content = scrape_multiple(urls) if urls else ""
+        # ── Technical content (docs + changelog) ──────────────────────────────
+        technical_urls = [
+            competitor.get("docs_url", ""),
+            competitor.get("changelog_url", ""),
+        ]
+        technical_urls = [u for u in technical_urls if u]
+        docs_content = scrape_multiple(technical_urls) if technical_urls else ""
 
-        # Merge into existing raw_data entry or create new
         if vendor_name in existing:
             existing[vendor_name]["web_content"] = web_content
+            existing[vendor_name]["docs_content"] = docs_content
         else:
             existing[vendor_name] = {
                 "vendor_name": vendor_name,
                 "web_content": web_content,
+                "docs_content": docs_content,
                 "youtube_content": "",
                 "scrapbook_content": "",
+                "scrapbook_images": [],
             }
 
     return {

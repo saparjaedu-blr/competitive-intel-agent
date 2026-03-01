@@ -1,7 +1,7 @@
 import streamlit as st
 from db.database import get_all_competitors
 from agent.graph import run_agent
-from mailer.emailer import send_report_email
+from email.emailer import send_report_email
 
 
 def render():
@@ -110,20 +110,32 @@ def _render_results(result: dict):
     syntheses = result.get("syntheses", [])
     for synthesis in syntheses:
         with st.expander(f"🏢 {synthesis['vendor_name']}", expanded=False):
-            tab1, tab2, tab3, tab4 = st.tabs([
-                "🚀 Recent Launches",
+            tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+                "🚀 Launches",
+                "🎯 Use Cases",
+                "⚙️ Technical",
+                "🖥️ UI/UX",
                 "💰 Pricing",
                 "🧭 Direction",
-                "⚔️ Gaps"
+                "⚔️ Gaps",
+                "👁️ Watch",
             ])
             with tab1:
                 st.markdown(synthesis.get("recent_launches", "_No data_"))
             with tab2:
-                st.markdown(synthesis.get("pricing_signals", "_No data_"))
+                st.markdown(synthesis.get("use_cases", "_No data_"))
             with tab3:
-                st.markdown(synthesis.get("strategic_direction", "_No data_"))
+                st.markdown(synthesis.get("technical_details", "_No data_"))
             with tab4:
+                st.markdown(synthesis.get("ui_ux", "_No data_"))
+            with tab5:
+                st.markdown(synthesis.get("pricing_signals", "_No data_"))
+            with tab6:
+                st.markdown(synthesis.get("strategic_direction", "_No data_"))
+            with tab7:
                 st.markdown(synthesis.get("gap_vs_your_product", "_No data_"))
+            with tab8:
+                st.markdown(synthesis.get("watch_points", "_No data_"))
 
     # ── Action Bar ──────────────────────────────────────────────────────────
     st.divider()

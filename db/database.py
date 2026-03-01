@@ -20,9 +20,14 @@ def init_db():
             vendor_name TEXT NOT NULL UNIQUE,
             website_url TEXT,
             blog_url TEXT,
+            docs_url TEXT,
+            changelog_url TEXT,
             youtube_channel TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+
+        -- Add new columns to existing DB if upgrading from older version
+        -- SQLite ignores these if columns already exist via IF NOT EXISTS workaround
 
         CREATE TABLE IF NOT EXISTS reports (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,33 +51,42 @@ def init_db():
     """)
 
     conn.commit()
+
+    # ── Migration: safely add new columns to existing databases ───────────────
+    for col in [("docs_url", "TEXT"), ("changelog_url", "TEXT")]:
+        try:
+            conn.execute(f"ALTER TABLE competitors ADD COLUMN {col[0]} {col[1]}")
+            conn.commit()
+        except Exception:
+            pass  # column already exists — safe to ignore
+
     conn.close()
 
 
 # ── Competitor CRUD ────────────────────────────────────────────────────────────
 
-def add_competitor(vendor_name, website_url="", blog_url="", youtube_channel=""):
+def add_competitor(vendor_name, website_url="", blog_url="", docs_url="", changelog_url="", youtube_channel=""):
     conn = get_connection()
     try:
         conn.execute(
-            """INSERT INTO competitors (vendor_name, website_url, blog_url, youtube_channel)
-               VALUES (?, ?, ?, ?)""",
-            (vendor_name, website_url, blog_url, youtube_channel),
+            """INSERT INTO competitors (vendor_name, website_url, blog_url, docs_url, changelog_url, youtube_channel)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (vendor_name, website_url, blog_url, docs_url, changelog_url, youtube_channel),
         )
         conn.commit()
         return True
-    except sqlite3.IntegrityError:
-        return False  # duplicate vendor name
+    except Exception:
+        return False
     finally:
         conn.close()
 
 
-def update_competitor(competitor_id, vendor_name, website_url, blog_url, youtube_channel):
+def update_competitor(competitor_id, vendor_name, website_url, blog_url, docs_url, changelog_url, youtube_channel):
     conn = get_connection()
     conn.execute(
-        """UPDATE competitors SET vendor_name=?, website_url=?, blog_url=?, youtube_channel=?
-           WHERE id=?""",
-        (vendor_name, website_url, blog_url, youtube_channel, competitor_id),
+        """UPDATE competitors SET vendor_name=?, website_url=?, blog_url=?,
+           docs_url=?, changelog_url=?, youtube_channel=? WHERE id=?""",
+        (vendor_name, website_url, blog_url, docs_url, changelog_url, youtube_channel, competitor_id),
     )
     conn.commit()
     conn.close()

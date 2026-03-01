@@ -4,6 +4,7 @@ from typing import TypedDict, List, Optional
 class CompetitorRawData(TypedDict):
     vendor_name: str
     web_content: str              # scraped from website + blog
+    docs_content: str             # scraped from product docs + changelog
     youtube_content: str          # transcripts concatenated
     scrapbook_content: str        # text extracted from Google Doc tabs
     scrapbook_images: List[str]   # base64 images extracted from Google Doc
@@ -12,15 +13,19 @@ class CompetitorRawData(TypedDict):
 class CompetitorSynthesis(TypedDict):
     vendor_name: str
     recent_launches: str
+    use_cases: str                # NEW — specific use cases and target segments
+    technical_details: str        # NEW — protocols, APIs, integrations, architecture
+    ui_ux: str                    # NEW — UI patterns, UX observations, interface details
     pricing_signals: str
     strategic_direction: str
     gap_vs_your_product: str
-    raw_synthesis: str      # full LLM output
+    watch_points: str             # NEW — specific things to monitor next quarter
+    raw_synthesis: str
 
 
 class DiffResult(TypedDict):
     vendor_name: str
-    delta_summary: str      # what changed vs last run
+    delta_summary: str
     is_first_run: bool
 
 
