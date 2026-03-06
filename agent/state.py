@@ -3,23 +3,23 @@ from typing import TypedDict, List, Optional
 
 class CompetitorRawData(TypedDict):
     vendor_name: str
-    web_content: str              # scraped from website + blog
-    docs_content: str             # scraped from product docs + changelog
-    youtube_content: str          # transcripts concatenated
-    scrapbook_content: str        # text extracted from Google Doc tabs
-    scrapbook_images: List[str]   # base64 images extracted from Google Doc
+    web_content: str
+    docs_content: str
+    youtube_content: str
+    scrapbook_content: str
+    scrapbook_images: List[str]
 
 
 class CompetitorSynthesis(TypedDict):
     vendor_name: str
     recent_launches: str
-    use_cases: str                # NEW — specific use cases and target segments
-    technical_details: str        # NEW — protocols, APIs, integrations, architecture
-    ui_ux: str                    # NEW — UI patterns, UX observations, interface details
+    use_cases: str
+    technical_details: str
+    ui_ux: str
     pricing_signals: str
     strategic_direction: str
     gap_vs_your_product: str
-    watch_points: str             # NEW — specific things to monitor next quarter
+    watch_points: str
     raw_synthesis: str
 
 
@@ -33,6 +33,7 @@ class AgentState(TypedDict):
     # ── Inputs ────────────────────────────────
     vendors: List[str]
     research_query: str
+    save_to_drive: bool           # whether to upload report to Google Drive
 
     # ── Intermediate ──────────────────────────
     raw_data: List[CompetitorRawData]
@@ -42,6 +43,10 @@ class AgentState(TypedDict):
     # ── Outputs ───────────────────────────────
     final_report_markdown: str
     gdrive_link: str
+
+    # ── Timing ────────────────────────────────
+    analysis_duration_seconds: float     # time for agent analysis
+    drive_duration_seconds: float        # time for drive upload (0 if skipped)
 
     # ── Meta ──────────────────────────────────
     errors: List[str]

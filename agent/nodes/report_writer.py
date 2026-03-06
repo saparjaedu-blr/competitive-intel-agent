@@ -1,3 +1,4 @@
+import time
 from datetime import datetime
 from agent.state import AgentState
 from agent.tools.gdrive_tool import upload_report_to_drive
@@ -6,15 +7,17 @@ from db.database import save_report, save_diff_log
 
 def report_writer_node(state: AgentState) -> AgentState:
     """
-    Format the final markdown report, save to SQLite, upload to Google Drive.
+    Format the final markdown report.
+    Conditionally saves to SQLite + uploads to Google Drive based on save_to_drive flag.
+    Tracks timing for analysis and drive upload separately.
     """
     syntheses = state.get("syntheses", [])
     diffs = state.get("diffs", [])
     research_query = state.get("research_query", "General competitive overview")
     vendors = state.get("vendors", [])
     errors = state.get("errors", [])
+    save_to_drive = state.get("save_to_drive", False)
 
-    # Build diff lookup
     diff_lookup = {d["vendor_name"]: d for d in diffs}
 
     now = datetime.now()
@@ -23,23 +26,17 @@ def report_writer_node(state: AgentState) -> AgentState:
 
     # ── Build Markdown Report ──────────────────────────────────────────────────
     lines = [
-        f"# Competitive Intelligence Report",
+        "# Competitive Intelligence Report",
         f"**Date:** {date_str} at {time_str}  ",
         f"**Research Focus:** {research_query}  ",
         f"**Vendors Analyzed:** {', '.join(vendors)}",
         "",
         "---",
         "",
+        "## 🔔 What's New Since Last Run",
+        "",
     ]
 
-    # Delta summary section (the most important part — what's new)
-    has_changes = any(
-        not d.get("is_first_run") and "No significant changes" not in d.get("delta_summary", "")
-        for d in diffs
-    )
-
-    lines.append("## 🔔 What's New Since Last Run")
-    lines.append("")
     if diffs:
         for diff in diffs:
             lines.append(f"### {diff['vendor_name']}")
@@ -49,10 +46,7 @@ def report_writer_node(state: AgentState) -> AgentState:
         lines.append("_This is the first run. No previous snapshot to compare against._")
         lines.append("")
 
-    lines.append("---")
-    lines.append("")
-    lines.append("## 📊 Full Intelligence by Vendor")
-    lines.append("")
+    lines += ["---", "", "## 📊 Full Intelligence by Vendor", ""]
 
     for synthesis in syntheses:
         vendor = synthesis["vendor_name"]
@@ -88,44 +82,67 @@ def report_writer_node(state: AgentState) -> AgentState:
         ]
 
     if errors:
-        lines += [
-            "## ⚠️ Errors During This Run",
-            "",
-        ]
+        lines += ["## ⚠️ Errors During This Run", ""]
         for err in errors:
             lines.append(f"- {err}")
 
     report_markdown = "\n".join(lines)
 
-    # ── Save to SQLite ─────────────────────────────────────────────────────────
-    report_id = save_report(
-        research_query=research_query,
-        vendors_covered=vendors,
-        report_markdown=report_markdown,
-        gdrive_link="",  # update after upload
-    )
+    # ── Save to SQLite + Drive (only if save_to_drive is enabled) ─────────────
+    gdrive_link = ""
+    drive_duration = 0.0
 
-    # Save diff logs (used for future diff comparisons)
-    for synthesis in syntheses:
-        vendor_name = synthesis["vendor_name"]
-        diff = diff_lookup.get(vendor_name, {})
-        save_diff_log(
-            report_id=report_id,
-            vendor_name=vendor_name,
-            previous_snapshot=diff.get("delta_summary", ""),
-            new_snapshot=synthesis["raw_synthesis"],
-            delta_summary=diff.get("delta_summary", ""),
+    if save_to_drive:
+        drive_start = time.time()
+
+        report_id = save_report(
+            research_query=research_query,
+            vendors_covered=vendors,
+            report_markdown=report_markdown,
+            gdrive_link="",
         )
 
-    # ── Upload to Google Drive ─────────────────────────────────────────────────
-    date_file = now.strftime("%Y-%m-%d")
-    filename = f"Competitive Intelligence — {date_file} — {research_query[:40]}"
-    gdrive_link = upload_report_to_drive(report_markdown, filename)
+        for synthesis in syntheses:
+            vendor_name = synthesis["vendor_name"]
+            diff = diff_lookup.get(vendor_name, {})
+            save_diff_log(
+                report_id=report_id,
+                vendor_name=vendor_name,
+                previous_snapshot=diff.get("delta_summary", ""),
+                new_snapshot=synthesis["raw_synthesis"],
+                delta_summary=diff.get("delta_summary", ""),
+            )
+
+        date_file = now.strftime("%Y-%m-%d")
+        filename = f"Competitive Intelligence — {date_file} — {research_query[:40]}"
+        gdrive_link = upload_report_to_drive(report_markdown, filename)
+
+        drive_duration = round(time.time() - drive_start, 1)
+    else:
+        # Still save diff logs to SQLite for future diff comparisons
+        # but do NOT save the full report or upload to Drive
+        report_id = save_report(
+            research_query=research_query,
+            vendors_covered=vendors,
+            report_markdown=report_markdown,
+            gdrive_link="__local_only__",
+        )
+        for synthesis in syntheses:
+            vendor_name = synthesis["vendor_name"]
+            diff = diff_lookup.get(vendor_name, {})
+            save_diff_log(
+                report_id=report_id,
+                vendor_name=vendor_name,
+                previous_snapshot=diff.get("delta_summary", ""),
+                new_snapshot=synthesis["raw_synthesis"],
+                delta_summary=diff.get("delta_summary", ""),
+            )
 
     return {
         **state,
         "final_report_markdown": report_markdown,
         "gdrive_link": gdrive_link,
+        "drive_duration_seconds": drive_duration,
         "errors": errors,
         "current_step": "report_complete",
     }
