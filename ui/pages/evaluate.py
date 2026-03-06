@@ -1,7 +1,6 @@
 import time
 import streamlit as st
 from db.database import get_all_competitors
-from agent.graph import run_agent
 from mailer.emailer import send_report_email
 
 
@@ -157,50 +156,120 @@ def render():
 
 
 def _run_with_progress(selected_vendors, research_query, save_to_drive):
-    steps = [
-        ("🌐", "Scraping websites and blogs..."),
-        ("📚", "Fetching documentation and changelogs..."),
-        ("🎬", "Fetching YouTube transcripts..."),
-        ("📄", "Reading scrapbook notes and images..."),
-        ("🧠", "Synthesizing with GPT-4o..."),
-        ("🔄", "Computing delta vs previous run..."),
-        ("📝", "Compiling final report..."),
-    ]
+    from agent.graph import stream_agent, PIPELINE_STEPS, STEP_LABELS
 
-    progress_bar = st.progress(0)
-    status_text = st.empty()
+    total_steps = len(PIPELINE_STEPS)
 
-    for i, (icon, label) in enumerate(steps):
-        status_text.markdown(
-            f"<p style='color:#64748b;font-size:13px;font-weight:500'>{icon}&nbsp; {label}</p>",
-            unsafe_allow_html=True
-        )
-        progress_bar.progress((i + 1) / len(steps) * 0.85)
-        time.sleep(0.35)
+    # ── UI placeholders ────────────────────────────────────────────────────────
+    # Progress bar + percentage on same row
+    prog_col, pct_col = st.columns([11, 1])
+    with prog_col:
+        progress_bar = st.progress(0)
+    with pct_col:
+        pct_text = st.empty()
+
+    status_text  = st.empty()
+    live_preview = st.empty()   # streams partial synthesis as it arrives
+
+    pct_text.markdown(
+        "<p style='font-family:JetBrains Mono,monospace;font-size:13px;"
+        "font-weight:600;color:#94a3b8;text-align:right;margin-top:6px'>0%</p>",
+        unsafe_allow_html=True
+    )
 
     try:
         analysis_start = time.time()
-        result = run_agent(selected_vendors, research_query, save_to_drive=save_to_drive)
+        result = None
+        completed = 0
+
+        for node_name, partial_state in stream_agent(
+            selected_vendors, research_query, save_to_drive=save_to_drive
+        ):
+            if node_name == "__end__":
+                result = partial_state
+                break
+
+            # Advance real progress
+            if node_name in PIPELINE_STEPS:
+                completed = PIPELINE_STEPS.index(node_name) + 1
+            pct = int((completed / total_steps) * 100)
+            progress_bar.progress(completed / total_steps)
+            pct_text.markdown(
+                f"<p style='font-family:JetBrains Mono,monospace;font-size:13px;"
+                f"font-weight:700;color:#1a56db;text-align:right;margin-top:6px'>{pct}%</p>",
+                unsafe_allow_html=True
+            )
+
+            icon, label = STEP_LABELS.get(node_name, ("⚙️", node_name))
+
+            # Show what just completed
+            status_text.markdown(
+                f"<p style='color:#64748b;font-size:13px;font-weight:500'>"
+                f"<span style='color:#15803d'>✓</span>&nbsp; <b>{icon} {label}</b> — done</p>",
+                unsafe_allow_html=True
+            )
+
+            # ── Live preview: stream synthesis results as they arrive ──────────
+            syntheses = partial_state.get("syntheses", [])
+            if syntheses and node_name == "synthesizer":
+                preview_lines = []
+                for s in syntheses:
+                    vendor = s.get("vendor_name", "")
+                    launches = (s.get("recent_launches") or "")[:300]
+                    if launches:
+                        preview_lines.append(
+                            f"<div style='margin-bottom:12px'>"
+                            f"<span style='font-size:11px;font-weight:700;letter-spacing:0.06em;"
+                            f"text-transform:uppercase;color:#1a56db'>{vendor}</span>"
+                            f"<p style='font-size:13px;color:#475569;margin:4px 0 0 0;"
+                            f"line-height:1.6'>{launches}…</p>"
+                            f"</div>"
+                        )
+                if preview_lines:
+                    live_preview.markdown(
+                        "<div style='background:#ffffff;border:1px solid #e8e4dd;border-radius:10px;"
+                        "padding:16px 20px;margin-top:8px'>"
+                        "<p style='font-size:11px;font-weight:700;letter-spacing:0.07em;"
+                        "text-transform:uppercase;color:#94a3b8;margin:0 0 12px 0'>"
+                        "⚡ Live Preview — Synthesis in progress</p>"
+                        + "".join(preview_lines) + "</div>",
+                        unsafe_allow_html=True
+                    )
+
+        # ── Done ──────────────────────────────────────────────────────────────
         analysis_duration = round(time.time() - analysis_start, 1)
 
-        # Inject timing into result
-        result["analysis_duration_seconds"] = analysis_duration
-        result["save_to_drive"] = save_to_drive
-
         progress_bar.progress(1.0)
-        status_text.markdown(
-            "<p style='color:#15803d;font-size:13px;font-weight:600'>✓&nbsp; Evaluation complete</p>",
+        pct_text.markdown(
+            "<p style='font-family:JetBrains Mono,monospace;font-size:13px;"
+            "font-weight:700;color:#15803d;text-align:right;margin-top:6px'>100%</p>",
             unsafe_allow_html=True
         )
-        time.sleep(0.6)
-        status_text.empty()
-        progress_bar.empty()
+        status_text.markdown(
+            "<p style='color:#15803d;font-size:13px;font-weight:700'>"
+            "✓&nbsp; Intelligence evaluation complete</p>",
+            unsafe_allow_html=True
+        )
+        time.sleep(0.8)
 
-        st.session_state["agent_result"] = result
+        # Clear progress UI
+        progress_bar.empty()
+        pct_text.empty()
+        status_text.empty()
+        live_preview.empty()
+
+        if result:
+            result["analysis_duration_seconds"] = analysis_duration
+            result["save_to_drive"] = save_to_drive
+            st.session_state["agent_result"] = result
+        else:
+            st.error("Agent completed but returned no result.")
 
     except Exception as e:
         progress_bar.empty()
+        pct_text.empty()
         status_text.empty()
+        live_preview.empty()
         st.error(f"Evaluation failed: {str(e)}")
 
 
